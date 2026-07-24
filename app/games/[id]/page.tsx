@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import type { GameRow, ScoreRow } from '@/lib/supabase/types';
+import { GAMES } from '@/app/data/games';
 
 export default async function GameDetail({
   params,
@@ -9,21 +10,19 @@ export default async function GameDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  const localGame = GAMES.find((g) => g.id === id);
+  if (!localGame) notFound();
+  const typedGame = localGame as unknown as GameRow;
+
   const supabase = await createClient();
+  const { data: scores } = await supabase
+    .from('scores')
+    .select('*')
+    .eq('game_id', id)
+    .order('score', { ascending: false })
+    .limit(10);
 
-  const [{ data: game }, { data: scores }] = await Promise.all([
-    supabase.from('games').select('*').eq('id', id).single(),
-    supabase
-      .from('scores')
-      .select('*')
-      .eq('game_id', id)
-      .order('score', { ascending: false })
-      .limit(10),
-  ]);
-
-  if (!game) notFound();
-
-  const typedGame = game as GameRow;
   const typedScores = (scores ?? []) as ScoreRow[];
   const best = typedScores[0]?.score ?? 0;
 
